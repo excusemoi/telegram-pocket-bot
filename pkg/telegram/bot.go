@@ -1,24 +1,25 @@
 package telegram
 
 import (
+	"github.com/excusemoi/telegram-pocket-bot/pkg/repository/boltdb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/zhashkevych/go-pocket-sdk"
 	"log"
 )
 
 type Bot struct {
-	bot          *tgbotapi.BotAPI
-	pocketClient *pocket.Client
-	redirectUrl  string
+	bot             *tgbotapi.BotAPI
+	pocketClient    *pocket.Client
+	tokenRepository *boltdb.TokenRepository
+	redirectUrl     string
 }
 
-func NewBot(bot *tgbotapi.BotAPI, client *pocket.Client, redirectUrl string) *Bot {
-	return &Bot{bot: bot, pocketClient: client, redirectUrl: redirectUrl}
+func NewBot(bot *tgbotapi.BotAPI, client *pocket.Client, tr *boltdb.TokenRepository, redirectUrl string) *Bot {
+	return &Bot{bot: bot, pocketClient: client, tokenRepository: tr, redirectUrl: redirectUrl}
 }
 
 func (b *Bot) Start() error {
 	log.Printf("Authorized on account %s", b.bot.Self.UserName)
-
 	updates, err := b.initUpdatesChannel()
 	if err != nil {
 		return err
