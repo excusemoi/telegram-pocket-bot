@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"github.com/excusemoi/telegram-pocket-bot/pkg/config"
 	"github.com/excusemoi/telegram-pocket-bot/pkg/repository/boltdb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/zhashkevych/go-pocket-sdk"
@@ -12,10 +13,22 @@ type Bot struct {
 	pocketClient    *pocket.Client
 	tokenRepository *boltdb.TokenRepository
 	redirectUrl     string
+	messages        *config.Messages
+	commands        *config.Commands
 }
 
-func NewBot(bot *tgbotapi.BotAPI, client *pocket.Client, tr *boltdb.TokenRepository, redirectUrl string) *Bot {
-	return &Bot{bot: bot, pocketClient: client, tokenRepository: tr, redirectUrl: redirectUrl}
+func NewBot(bot *tgbotapi.BotAPI,
+	client *pocket.Client,
+	tr *boltdb.TokenRepository,
+	redirectUrl string,
+	messages *config.Messages,
+	commands *config.Commands) *Bot {
+	return &Bot{bot: bot,
+		pocketClient:    client,
+		tokenRepository: tr,
+		redirectUrl:     redirectUrl,
+		messages:        messages,
+		commands:        commands}
 }
 
 func (b *Bot) Start() error {
@@ -24,25 +37,27 @@ func (b *Bot) Start() error {
 	if err != nil {
 		return err
 	}
-	err = b.handleUpdates(updates)
-	if err != nil {
-		return err
-	}
-	return err
+	b.handleUpdates(updates)
+	return nil
 }
 
-func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) error {
-	var err error
+func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 	for update := range updates {
+		var handler func(*tgbotapi.Message) error
 		if update.Message == nil {
 			continue
 		} else if update.Message.IsCommand() {
-			err = b.handleCommand(update.Message)
+			handler = b.handleCommand
 		} else {
-			err = b.handleMessage(update.Message)
+			handler = b.handleMessage
+		}
+		if err := handler(update.Message); err != nil {
+			if err = b.handleError(update.Message.Chat.ID, err); err != nil {
+				log.Println(err)
+			}
+
 		}
 	}
-	return err
 }
 
 func (b *Bot) initUpdatesChannel() (tgbotapi.UpdatesChannel, error) {

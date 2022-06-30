@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/boltdb/bolt"
+	"github.com/excusemoi/telegram-pocket-bot/pkg/config"
 	"github.com/excusemoi/telegram-pocket-bot/pkg/repository"
 	"github.com/excusemoi/telegram-pocket-bot/pkg/repository/boltdb"
 	"github.com/excusemoi/telegram-pocket-bot/pkg/server"
@@ -12,13 +13,20 @@ import (
 )
 
 func main() {
-	b, err := tgbotapi.NewBotAPI("5516775333:AAHEepCjVdoZyLPI56WCZteps_SAYRZS_84") // разумеется в пизду нахуй убрать
+
+	cfg, err := config.Init()
+	if err != nil {
+		log.Panic(err)
+
+	}
+
+	b, err := tgbotapi.NewBotAPI(cfg.TelegramToken) // разумеется в пизду нахуй убрать
 	if err != nil {
 		log.Panic(err)
 	}
 	b.Debug = true
 
-	cl, err := pocket.NewClient("102608-f22e24e51debd40fdedd925") // разумеется в пизду нахуй убрать
+	cl, err := pocket.NewClient(cfg.PocketConsumerKey) // разумеется в пизду нахуй убрать
 	if err != nil {
 		log.Panic(err)
 	}
@@ -30,9 +38,9 @@ func main() {
 
 	tr := boltdb.NewTokenRepository(db)
 
-	telegramBot := telegram.NewBot(b, cl, tr, "https://localhost/")
+	telegramBot := telegram.NewBot(b, cl, tr, cfg.AuthServerUrl, cfg.Messages, cfg.Commands)
 
-	authorizationServer := server.NewAuthorizationServer(cl, tr, "https://t.me/pocket_study_for_bot")
+	authorizationServer := server.NewAuthorizationServer(cl, tr, cfg.TelegramBotUrl)
 
 	go func() {
 		if err := telegramBot.Start(); err != nil {

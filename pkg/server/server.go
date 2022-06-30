@@ -4,6 +4,7 @@ import (
 	"github.com/excusemoi/telegram-pocket-bot/pkg/repository"
 	"github.com/excusemoi/telegram-pocket-bot/pkg/repository/boltdb"
 	"github.com/zhashkevych/go-pocket-sdk"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -22,7 +23,7 @@ func NewAuthorizationServer(pc *pocket.Client, tr *boltdb.TokenRepository,
 
 func (s *AuthorizationServer) Start() error {
 	s.server = &http.Server{
-		Addr:    ":8080",
+		Addr:    ":80",
 		Handler: s,
 	}
 	return s.server.ListenAndServe()
@@ -53,6 +54,9 @@ func (s *AuthorizationServer) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("char_id\n%d\nrequest_token\n%s\naccess_token\n%s", chatId, requestToken, authResp.AccessToken)
+
 	w.Header().Add("Location", s.redirectURL)
 	w.WriteHeader(http.StatusMovedPermanently)
 }

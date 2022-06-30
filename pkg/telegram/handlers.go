@@ -1,46 +1,60 @@
 package telegram
 
 import (
-	"fmt"
+	"context"
+	"github.com/excusemoi/telegram-pocket-bot/pkg/repository"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-)
-
-const (
-	commandStart              = "start"
-	commandUnknown            = "Я не знаю такой команды"
-	commandReplyStartTemplate = "Привет! Чтобы сохранять ссылки в своем Pocket аккаунте, для начала тебе необходимо дать мне на это " +
-		"доступ. Для этого переходи по ссылке:\n%s"
+	"github.com/zhashkevych/go-pocket-sdk"
+	"net/url"
 )
 
 func (b *Bot) handleCommand(message *tgbotapi.Message) error {
 	switch message.Command() {
-	case commandStart:
+	case b.commands.Start:
 		return b.handleStartCommand(message)
 	default:
-		return b.handleUnknownCommand(message)
+		return errUnknownCommand
 	}
 }
 
 func (b *Bot) handleStartCommand(message *tgbotapi.Message) error {
-	authLink, err := b.generateAuthorizationLink(message.Chat.ID)
-	_, err = b.bot.Send(tgbotapi.NewMessage(message.Chat.ID,
-		fmt.Sprintf(commandReplyStartTemplate, authLink)))
+	_, err := b.tokenRepository.Get(message.Chat.ID, repository.AccessToken)
+	if err != nil {
+		return b.initAuthorizationProcess(message)
+	}
+	_, err = b.bot.Send(tgbotapi.NewMessage(message.Chat.ID, b.messages.Responses.AlreadyAuthorized))
 	return err
 }
 
 func (b *Bot) handleUnknownCommand(message *tgbotapi.Message) error {
-	_, err := b.bot.Send(tgbotapi.NewMessage(message.Chat.ID, commandUnknown))
+	_, err := b.bot.Send(tgbotapi.NewMessage(message.Chat.ID, b.messages.Errors.UnknownCommand))
 	return err
 }
 
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
+	msg := tgbotapi.NewMessage(message.Chat.ID, b.messages.Responses.UrlSavedSuccessfully)
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, message.Text)
-	msg.ReplyToMessageID = message.MessageID
+	_, err := url.ParseRequestURI(message.Text)
+	if err != nil {
+		return errInvalidUrl
+	}
 
-	_, err := b.bot.Send(msg)
+	accessToken, err := b.getAccessToken(message.Chat.ID)
+	if err != nil {
+		return errUnauthorized
+	}
+
+	if err = b.pocketClient.Add(context.Background(), pocket.AddInput{
+		URL:         message.Text,
+		AccessToken: accessToken,
+	}); err != nil {
+		return errUnableToSave
+	}
+
+	_, err = b.bot.Send(msg)
 	if err != nil {
 		return err
 	}
-	return err
+
+	return nil
 }
