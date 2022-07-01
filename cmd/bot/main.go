@@ -31,7 +31,7 @@ func main() {
 		log.Panic(err)
 	}
 
-	db, err := initDb()
+	db, err := initDb(cfg)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -53,8 +53,8 @@ func main() {
 	}
 }
 
-func initDb() (*bolt.DB, error) {
-	db, err := bolt.Open("bot.db", 0600, nil)
+func initDb(cfg *config.Config) (*bolt.DB, error) {
+	db, err := bolt.Open(cfg.DbFile, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
